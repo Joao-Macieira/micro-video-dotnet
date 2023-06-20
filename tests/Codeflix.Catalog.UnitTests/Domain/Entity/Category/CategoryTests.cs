@@ -1,6 +1,7 @@
 ﻿using Xunit;
 using DomainEntity = Codeflix.Catalog.Domain.Entity;
 using Codeflix.Catalog.Domain.Exceptions;
+using System.Xml.Linq;
 
 namespace Codeflix.Catalog.UnitTests.Domain.Entity.Category;
 
@@ -155,6 +156,69 @@ public class CategoryTests
 
         Assert.Equal(newValues.Name, category.Name);
         Assert.Equal(newValues.Description, category.Description);
+    }
+
+    [Fact(DisplayName = nameof(UpdateOnlyName))]
+    [Trait("Domain", "Category - Aggregate")]
+    public void UpdateOnlyName()
+    {
+        var category = new DomainEntity.Category("category name", "category description");
+        var currentDescription = category.Description;
+
+        var newValues = new
+        {
+            Name = "New name",
+        };
+
+        category.Update(newValues.Name);
+
+        Assert.Equal(newValues.Name, category.Name);
+        Assert.Equal(currentDescription, category.Description);
+    }
+
+    [Theory(DisplayName = nameof(UpdateErrorWhenNameIsEmptyOrNull))]
+    [Trait("Domain", "Category - Aggregate")]
+    [InlineData("")]
+    [InlineData(null)]
+    [InlineData("    ")]
+    public void UpdateErrorWhenNameIsEmptyOrNull(string? name)
+    {
+        var category = new DomainEntity.Category("category name", "category description");
+        var exception = Assert.Throws<EntityValidationException>(() => category.Update(name!));
+        Assert.Equal("Name should not be empty or null", exception.Message);
+    }
+
+    [Theory(DisplayName = nameof(UpdateErrorWhenNameHasLessThan3Characters))]
+    [Trait("Domain", "Category - Aggregate")]
+    [InlineData("a")]
+    [InlineData("ab")]
+    [InlineData("1")]
+    [InlineData("12")]
+    public void UpdateErrorWhenNameHasLessThan3Characters(string invalidName)
+    {
+        var category = new DomainEntity.Category("category name", "category description");
+        var exception = Assert.Throws<EntityValidationException>(() => category.Update(invalidName));
+        Assert.Equal("Name should have at least 3 characters", exception.Message);
+    }
+
+    [Fact(DisplayName = nameof(UpdateErrorWhenNameHasMoreThan255Characters))]
+    [Trait("Domain", "Category - Aggregate")]
+    public void UpdateErrorWhenNameHasMoreThan255Characters()
+    {
+        var invalidName = string.Join(null, Enumerable.Range(1, 256).Select(_ => "a").ToArray());
+        var category = new DomainEntity.Category("category name", "category description");
+        var exception = Assert.Throws<EntityValidationException>(() => category.Update(invalidName));
+        Assert.Equal("Name should not have more than 255 characters", exception.Message);
+    }
+
+    [Fact(DisplayName = nameof(UpdateErrorWhenDescriptionHasMoreThan10_000Characters))]
+    [Trait("Domain", "Category - Aggregate")]
+    public void UpdateErrorWhenDescriptionHasMoreThan10_000Characters()
+    {
+        var invalidDescription = string.Join(null, Enumerable.Range(1, 10001).Select(_ => "a").ToArray());
+        var category = new DomainEntity.Category("category name", "category description");
+        var exception = Assert.Throws<EntityValidationException>(() => category.Update("new category name", invalidDescription));
+        Assert.Equal("Description should not have more than 10_000 characters", exception.Message);
     }
 }
 
